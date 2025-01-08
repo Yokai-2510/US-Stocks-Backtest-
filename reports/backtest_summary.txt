@@ -1,0 +1,14 @@
+=== Backtest Summary ===
+Symbol: ALGN
+Period: 2020-01-02 00:00:00 to 2024-12-31 00:00:00
+Total Return: -1.73%
+Sharpe Ratio: 0.00
+Max Drawdown: -7.18%
+Number of Trades: 145
+Win Rate: 48.97%
+
+=== Trade Statistics ===
+Average Trade Duration: 2.9 days
+Average Profit per Trade: $-11.90
+Largest Win: $1064.11
+Largest Loss: $-1036.49
