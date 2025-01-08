@@ -1,0 +1,41 @@
+# Short RSI Thrust Strategy
+
+## 1. Filtering
+- Universe: NYSE, NASDAQ, AMEX stocks
+- Price ≥ $5.00
+- 20-day Average Dollar Volume > $25 million
+- 10-day ATR% ≥ 3% of closing price
+- RSI(3) > 90
+- Two consecutive higher closes
+- Rank all qualifying stocks by ADX(7) value (top 2 needed)
+
+## 2. Entry
+- Order Type: Limit order at 4% above previous day's closing price , Expiry 1 day 
+- Position Size: 10% of portfolio per position
+- Risk per Trade: 2% of portfolio
+- Entry Timing: Orders placed at market open
+- Trade maximum of 2 highest filtered ADX-ranked stocks per day
+- Total concurrent positions limited to 10
+
+## 3. Exit
+- Stop Loss: 3x ATR above entry price (buy stop order same day along with entry)
+- Profit Target: 4% gain from entry (market-on-close order)
+- Time-Based Exit: Close after 2 days if profit target not reached
+- All exits executed as market-on-close orders
+- Stop loss orders placed day after entry
+
+## 4. Reports
+- Daily Screening Results:
+  - Filtered stock list with ADX rankings
+  - Number of new trades available for the day
+  - Current open positions and their status
+- Risk Dashboard:
+  - Portfolio exposure
+  - Position-level P&L
+  - Stop loss distances
+  - Time in trades
+- Performance Metrics:
+  - Daily P&L
+  - Win/Loss ratio
+  - Average hold time
+  - Stop loss hit rate
