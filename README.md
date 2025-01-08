@@ -1,6 +1,7 @@
 ## Installation
 
-#### 1. Set Up Virtual Environment (Optional but Strongly recommended)
+#### 1. Download the Entire Repo 
+  - Set Up Virtual Environment (Optional but Strongly recommended)
 
 #### 2. Install Dependencies
 ```bash
@@ -18,9 +19,10 @@ pip install .\ta_lib-0.5.1-cp312-cp312-win_amd64.whl
 
 ## Execution
 
-- Run the `filter_stocks.py` script to generate reports for ADX-ranked filtered stocks.
-- Use the filtered stocks in the `backtest_stock.py` script to backtest a single stock.
-- The results will be saved in the `reports` folder.
+- Run the `filter_stocks.py` script to generate reports for ADX-ranked filtered stocks. It will contain the list of ADX ranked stocks for the date mnetioned in the script .
+- To backtest a single stock , run the  `backtest_stock.py` . It will automatically generate and save reports and also open up a browser tab with the reports. 
+- All the reports will be saved in the `reports` folder for both the `backtest_stock.py` and `filter_stocks.py` script .
+- Both the scripts will have easily editable configurations like start data , end date etc .
   
 ## Reports include:
   - **HTML report**  
