@@ -8,10 +8,11 @@
 pip install -r requirements.txt
 ```
 
+
+In case installing TA-lib throws an error , use this to install TA -lib library .
 ```bash
 cd source
 ```
-In case installing TA-lib throws an error , use this to install TA -lib library .
 ```bash
 pip install .\ta_lib-0.5.1-cp312-cp312-win_amd64.whl
 ```
