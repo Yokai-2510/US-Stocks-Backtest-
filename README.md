@@ -3,9 +3,17 @@
 #### 1. Set Up Virtual Environment (Optional but Strongly recommended)
 
 #### 2. Install Dependencies
-```pip install -r requirements.txt```
-```cd source```
-```pip install .\ta_lib-0.5.1-cp312-cp312-win_amd64.whl```
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+cd source
+```
+
+```bash
+pip install .\ta_lib-0.5.1-cp312-cp312-win_amd64.whl
+```
 
 
 ## Execution
