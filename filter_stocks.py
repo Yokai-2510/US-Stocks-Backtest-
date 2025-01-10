@@ -44,17 +44,61 @@ def get_adx_metrics(data, period=7):
                     data['Close'].values, timeperiod=period)
     return adx[-1]
 
-def analyze_stocks(tickers , end_date):
+def analyze_stocks(tickers, end_date):
     #   Main analysis function
     results = []
+    error_records = []
+    failed_downloads = []
     start_date = end_date - timedelta(days=40)  # Get more data for proper calculation
+    
+    # Clean tickers and convert to string
+    tickers = [str(ticker).strip().upper() for ticker in tickers if pd.notna(ticker)]
+    
+    # Download all stock data at once
+    print("Downloading data for all stocks...")
+    try:
+        data = yf.download(tickers, start=start_date, end=end_date, group_by='ticker')
+        # Check which tickers failed to download
+        if len(tickers) > 1:
+            available_tickers = set(data.columns.get_level_values(0).unique())
+            failed_tickers = set(tickers) - available_tickers
+            for ticker in failed_tickers:
+                failed_downloads.append({
+                    'Ticker': ticker,
+                    'Error': 'Failed to download data'
+                })
+    except Exception as e:
+        print(f"Error downloading data: {e}")
+        # Extract failed tickers from the error message
+        if 'YFPricesMissingError' in str(e) or 'YFTzMissingError' in str(e):
+            error_parts = str(e).split("'")
+            for i in range(len(error_parts)):
+                if '[' in error_parts[i]:
+                    tickers_str = error_parts[i].strip('[]').replace("'", "").replace(" ", "")
+                    failed_tickers = tickers_str.split(',')
+                    for ticker in failed_tickers:
+                        failed_downloads.append({
+                            'Ticker': ticker,
+                            'Error': str(e)
+                        })
     
     for ticker in tqdm(tickers, desc="Analyzing stocks"):
         try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(start=start_date, end=end_date)
+            # Skip if ticker is in failed downloads
+            if any(fd['Ticker'] == ticker for fd in failed_downloads):
+                continue
+                
+            # Extract individual stock data
+            if len(tickers) == 1:
+                hist = data
+            else:
+                hist = data[ticker].copy()
             
-            if len(hist) < 20:  # Minimum required data
+            if hist.empty or len(hist) < 20:
+                error_records.append({
+                    'Ticker': ticker,
+                    'Error': 'Insufficient data (less than 20 days)'
+                })
                 continue
                 
             result = {
@@ -67,12 +111,28 @@ def analyze_stocks(tickers , end_date):
                 '7-day ADX': round(get_adx_metrics(hist), 2)
             }
             results.append(result)
+            
         except Exception as e:
+            error_records.append({
+                'Ticker': ticker,
+                'Error': str(e)
+            })
             print(f"Error processing {ticker}: {e}")
             continue
             
+    # Save error records
+    if error_records:
+        pd.DataFrame(error_records).to_csv("data/error_stocks.csv", index=False)
+        print("\nError records saved to: data/error_stocks.csv")
+    
+    # Save failed downloads
+    if failed_downloads:
+        pd.DataFrame(failed_downloads).to_csv("data/failed_downloads.csv", index=False)
+        print("\nFailed downloads saved to: data/failed_downloads.csv")
+            
     return pd.DataFrame(results)
 
+    
 def filter_stocks(df):
     #   Apply filtering criteria and rank stocks
     
@@ -117,13 +177,13 @@ def filter_stocks(df):
     
     return ranked_stocks
 
+
 def filtered_stocks(end_date):
-    
+
     # Read tickers
     tickers = pd.read_csv("data/tickers.csv")["Ticker"].tolist()
     
     # Analyze stocks
-    
     results_df = analyze_stocks(tickers, end_date)
     
     # Filter and rank stocks
@@ -132,6 +192,5 @@ def filtered_stocks(end_date):
     return top_stocks
 
 if __name__ == "__main__":
-    #2021-04-29
-    end_date = datetime(2021, 4, 29)
+    end_date = datetime(2025, 1, 1)
     filtered_stocks(end_date)
