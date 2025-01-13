@@ -1,7 +1,7 @@
+# exit_conditions.py
+
 from typing import Optional, Tuple
 
-
-# exit_conditions.py
 def _handle_exit(self, current_bar: int) -> None:
     if self._is_new_position():
         self._record_entry_details(current_bar)
@@ -20,11 +20,9 @@ def _record_entry_details(self, current_bar: int) -> None:
     self.entry_bar = current_bar
     self.entry_price = self.data.Close[current_bar]
     
-    # Place stop loss order
+    # Calculate stop loss level but don't place order
     stop_price = self.entry_price + (self.ATR_MULTIPLIER * self.atr[current_bar])
-    stop_order = self.buy(size=abs(self.position.size), stop=stop_price)
     self.stop_loss_orders[current_bar] = {
-        'order': stop_order,
         'price': stop_price
     }
 
@@ -35,6 +33,10 @@ def _should_exit(self, current_bar: int) -> Tuple[bool, str]:
     trading_days_held = current_bar - self.entry_bar
     current_price = self.data.Close[current_bar]
     profit_pct = (self.entry_price - current_price) / self.entry_price
+    
+    # Check stop loss condition
+    if current_price >= self.stop_loss_orders[self.entry_bar]['price']:
+        return True, "Stop Loss"
 
     if profit_pct >= self.PROFIT_TARGET_PCT:
         return True, "Profit Target"
@@ -45,9 +47,6 @@ def _should_exit(self, current_bar: int) -> Tuple[bool, str]:
     return False, ""
 
 def _execute_exit(self, current_bar: int) -> None:
-    if self.entry_bar in self.stop_loss_orders:
-        self.stop_loss_orders[self.entry_bar]['order'].cancel()
-    
     self.position.close()
     self._reset_tracking_variables()
 
@@ -71,7 +70,6 @@ def _store_exit_metrics(self, current_bar: int) -> None:
         'ExitType': self.exit_reasons.get(current_bar + 1, 'Unknown')
     }
 
-
 if __name__ == "__main__":
     _handle_exit()
     _is_new_position()
@@ -80,4 +78,3 @@ if __name__ == "__main__":
     _execute_exit()
     _reset_tracking_variables()
     _store_exit_metrics()
-    
