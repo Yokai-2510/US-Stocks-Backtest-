@@ -1,89 +1,60 @@
-# backtest_stock.py
+# backtest.py
 
 
-from backtesting import Strategy
+import backtrader as bt
 import pandas as pd
-import numpy as np
-from typing import Optional
+import json
+from datetime import datetime
+from data_analysis import fetch_data
+from create_reports import create_reports
+from strategy import ShortRSIStrategy
 
-from entry_conditions import (_handle_entry, _reset_entry_tracking, 
-                            _cancel_old_orders, _can_place_new_order, _place_limit_order)
-from exit_conditions import (_handle_exit, _is_new_position, _record_entry_details,
-                           _should_exit, _execute_exit, _reset_tracking_variables,
-                           _store_exit_metrics)
-from module import download_data, run_backtest
-from create_reports import save_summary_report
+def run_backtest(cerebro, stock_dfs, ranked_stocks, config):
 
-class SimpleShortStrategy(Strategy):
-    SYMBOL = "ALGN"
-    START_DATE = "2020-01-01"
-    END_DATE = "2025-01-01"
-    INITIAL_CASH = 100000
-    POSITION_SIZE = 0.1
-    ENTRY_LIMIT_PCT = 0.04
-    EXIT_DAYS = 2
-    COMMISSION = 0.002
-    PROFIT_TARGET_PCT = 0.04
-    ATR_PERIOD = 14
-    ATR_MULTIPLIER = 3.0
+    # Set exact dates for backtest period
+    fromdate = datetime.strptime(config["start_date"], "%Y-%m-%d")
+    todate = datetime.strptime(config["end_date"], "%Y-%m-%d")
+    
+    # Add data feeds to Cerebro with explicit date range
+    for symbol, stock_df in stock_dfs.items():
+        if stock_df is not None:
+            data = bt.feeds.PandasData(
+                dataname=stock_df,
+                name=symbol,
+                fromdate=fromdate,  
+                todate=todate   )
+            cerebro.adddata(data)
+    
+    # Add strategy and pass ranked_stocks data and config
+    cerebro.addstrategy(ShortRSIStrategy, ranked_stocks=ranked_stocks, config=config)
+    cerebro.broker.setcash(config["capital"])
+    cerebro.broker.setcommission(commission=config["commission"])
+    
+    # Add analyzers
+    cerebro.addanalyzer(bt.analyzers.PyFolio, _name="pyfolio")
+    cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name="trades")
+    
+    return cerebro.run()
 
-    def init(self):
-        self.limit_order_day: Optional[int] = None
-        self.entry_bar: Optional[int] = None
-        self.entry_price: Optional[float] = None
-        self.exit_reasons = {}
-        self.exit_metrics = {}
-        self.stop_loss_orders = {}
-        self.trading_days = []
-        self.daily_returns = []
-        
-        high = self.data.High
-        low = self.data.Low
-        close = self.data.Close
-        
-        def calc_tr():
-            tr = high - low
-            prev_close = pd.Series(close).shift(1).values
-            tr1 = abs(high - prev_close)
-            tr2 = abs(low - prev_close)
-            return np.maximum.reduce([tr, tr1, tr2])
-        
-        tr = self.I(calc_tr)
-        self.atr = self.I(lambda x: pd.Series(tr).rolling(self.ATR_PERIOD).mean(), tr)
+if __name__ == "__main__"   :
 
-    def next(self):
-        current_bar = len(self.data) - 1
-        self.trading_days.append(self.data.index[current_bar])
-        
-        if current_bar > 0:
-            daily_return = (self.data.Close[current_bar] - self.data.Close[current_bar - 1]) / self.data.Close[current_bar - 1]
-            self.daily_returns.append(daily_return)
-        
-        if not self.position:
-            self._handle_entry(current_bar)
-        else:
-            self._handle_exit(current_bar)
+    print("\nRunning backtest...\n")
+    # Load configuration from config.json
+    with open("source/config.json") as f:
+        config = json.load(f)
 
-    # Import entry methods
-    _handle_entry = _handle_entry
-    _reset_entry_tracking = _reset_entry_tracking
-    _cancel_old_orders = _cancel_old_orders
-    _can_place_new_order = _can_place_new_order
-    _place_limit_order = _place_limit_order
+    cerebro = bt.Cerebro()  # Initialize Cerebro engine
 
-    # Import exit methods
-    _handle_exit = _handle_exit
-    _is_new_position = _is_new_position
-    _record_entry_details = _record_entry_details
-    _should_exit = _should_exit
-    _execute_exit = _execute_exit
-    _reset_tracking_variables = _reset_tracking_variables
-    _store_exit_metrics = _store_exit_metrics
+    # Load ranked stocks data
+    ranked_stocks = pd.read_csv("data/ranked_stocks_data_df.csv")
+    ranked_stocks['Date'] = pd.to_datetime(ranked_stocks['Date']).dt.date    # Convert Date column to datetime
+    symbols = ranked_stocks['Ticker'].unique().tolist()     # Get unique tickers from ranked_stocks 
 
-def main():
-    data = download_data(SimpleShortStrategy)
-    stats, trades = run_backtest(data, SimpleShortStrategy)
-    save_summary_report(stats, trades, SimpleShortStrategy)
+    # Fetch data for all symbols
+    stock_dfs = fetch_data(symbols, config)
 
-if __name__ == "__main__":
-    main()
+    # Run backtest with explicit date handling
+    results = run_backtest(cerebro, stock_dfs, ranked_stocks, config)
+
+    # Create reports
+    create_reports(results, ranked_stocks)
