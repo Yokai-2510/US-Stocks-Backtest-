@@ -1,0 +1,14 @@
+{
+  "start_date": "2023-1-1",
+  "end_date": "2023-3-31",
+  "capital": 1000000,
+  "active_positions_cap": 10,
+  "daily_tickers_entry": 2,
+  "limit_order_percent": 4,
+  "exit_time_days": 5,
+  "profit_percent": 4,
+  "atr_period": 10,
+  "atr_multiplier": 3, 
+  "profit_target_percent": 4,
+  "commission": 0.002
+}
