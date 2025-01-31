@@ -1,80 +1,72 @@
-# exit_conditions.py
+import backtrader as bt
+from datetime import datetime, timedelta
 
-from typing import Optional, Tuple
-
-def _handle_exit(self, current_bar: int) -> None:
-    if self._is_new_position():
-        self._record_entry_details(current_bar)
-        return
+def exit_logic(self, current_date):
     
-    should_exit, exit_reason = self._should_exit(current_bar)
-    if should_exit:
-        self.exit_reasons[current_bar + 1] = exit_reason
-        self._store_exit_metrics(current_bar)
-        self._execute_exit(current_bar)
-
-def _is_new_position(self) -> bool:
-    return self.entry_bar is None
-
-def _record_entry_details(self, current_bar: int) -> None:
-    self.entry_bar = current_bar
-    self.entry_price = self.data.Close[current_bar]
+    # Get all active positions
+    active_positions = [d for d in self.datas if self.getposition(d).size != 0]
     
-    # Calculate stop loss level but don't place order
-    stop_price = self.entry_price + (self.ATR_MULTIPLIER * self.atr[current_bar])
-    self.stop_loss_orders[current_bar] = {
-        'price': stop_price
-    }
-
-def _should_exit(self, current_bar: int) -> Tuple[bool, str]:
-    if self.entry_bar is None:
-        return False, ""
+    for d in active_positions:
+        pos = self.getposition(d)
         
-    trading_days_held = current_bar - self.entry_bar
-    current_price = self.data.Close[current_bar]
-    profit_pct = (self.entry_price - current_price) / self.entry_price
-    
-    # Check stop loss condition
-    if current_price >= self.stop_loss_orders[self.entry_bar]['price']:
-        return True, "Stop Loss"
-
-    if profit_pct >= self.PROFIT_TARGET_PCT:
-        return True, "Profit Target"
+        # Get entry date and price from our stored dictionaries
+        entry_date = self.entry_dates.get(d._name)
+        entry_price = self.entry_prices.get(d._name)
         
-    if trading_days_held >= self.EXIT_DAYS:
-        return True, "Time Exit"
-    
-    return False, ""
-
-def _execute_exit(self, current_bar: int) -> None:
-    self.position.close()
-    self._reset_tracking_variables()
-
-def _reset_tracking_variables(self) -> None:
-    self.entry_bar = None
-    self.entry_price = None
-    self.limit_order_day = None
-
-def _store_exit_metrics(self, current_bar: int) -> None:
-    current_price = self.data.Close[current_bar]
-    profit_pct = (self.entry_price - current_price) / self.entry_price
-    stop_loss_price = self.stop_loss_orders[self.entry_bar]['price'] if self.entry_bar in self.stop_loss_orders else None
-    trading_days_held = current_bar - self.entry_bar
-    
-    self.exit_metrics[current_bar + 1] = {
-        'ProfitTargetPrice': self.entry_price * (1 - self.PROFIT_TARGET_PCT),
-        'StopLossPrice': stop_loss_price,
-        'DaysHeld': trading_days_held,
-        'CurrentProfitPct': profit_pct * 100,
-        'ATRValue': self.atr[self.entry_bar],
-        'ExitType': self.exit_reasons.get(current_bar + 1, 'Unknown')
-    }
-
-if __name__ == "__main__":
-    _handle_exit()
-    _is_new_position()
-    _record_entry_details()
-    _should_exit()
-    _execute_exit()
-    _reset_tracking_variables()
-    _store_exit_metrics()
+        if entry_date is not None and entry_price is not None:
+            # Calculate current position metrics
+            current_price = d.close[0]
+            profit_pct = ((entry_price - current_price) / entry_price) * 100
+            days_held = (current_date - entry_date).days
+            current_atr = self.atrs[d._name][0]
+            
+            # Calculate actual exit condition values
+            time_exit_date = entry_date + timedelta(days=self.config["exit_time_days"])
+            stop_loss_price = entry_price + (self.config['atr_multiplier'] * current_atr)
+            profit_target_price = entry_price * (1 - self.config['profit_target_percent']/100)
+            
+            exit_reason = None
+            exit_details = {}
+            
+            # 1. Time-based exit
+            if days_held >= self.config["exit_time_days"]:
+                exit_reason = "Time-based"
+                exit_details = {
+                    'criterion': 'Time-based',
+                    'target_value': time_exit_date.strftime("%Y-%m-%d"),
+                    'actual_value': current_date.strftime("%Y-%m-%d"),
+                    'days_held': days_held,
+                    'target_days': self.config["exit_time_days"]
+                }
+            
+            # 2. Stop Loss - ATR based
+            elif current_price >= stop_loss_price:
+                exit_reason = "Stop Loss"
+                exit_details = {
+                    'criterion': 'Stop Loss',
+                    'target_value': stop_loss_price,
+                    'actual_value': current_price,
+                    'atr_value': current_atr,
+                    'atr_multiplier': self.config['atr_multiplier']
+                }
+            
+            # 3. Profit Target
+            elif profit_pct >= self.config['profit_target_percent']:
+                exit_reason = "Profit Target"
+                exit_details = {
+                    'criterion': 'Profit Target',
+                    'target_value': profit_target_price,
+                    'actual_value': current_price,
+                    'target_percent': self.config['profit_target_percent'],
+                    'actual_percent': profit_pct
+                }
+            
+            # Execute exit if any condition is met
+            if exit_reason:
+                
+                self.exit_details[d._name] = exit_details   # Store exit details in strategy instance
+                self.order = self.close(data=d)  # Close the position
+        
+        else:
+            print(f"\nWarning: No entry data found for active position in {d._name}")
+            self.order = self.close(data=d)
