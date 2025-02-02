@@ -10,6 +10,7 @@ pip install -r requirements.txt
 
 
 In case installing TA-lib throws an error , use this to install TA -lib library .
+Link to Download : https://github.com/cgohlke/talib-build/release
 ```bash
 cd source
 ```
