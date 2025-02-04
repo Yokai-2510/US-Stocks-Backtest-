@@ -46,15 +46,19 @@ if __name__ == "__main__"   :
     cerebro = bt.Cerebro()  # Initialize Cerebro engine
 
     # Load ranked stocks data
-    ranked_stocks = pd.read_csv("data/ranked_stocks_data_df.csv")
+    ranked_stocks = pd.read_csv("data/stocks_ranked.csv")
     ranked_stocks['Date'] = pd.to_datetime(ranked_stocks['Date']).dt.date    # Convert Date column to datetime
     symbols = ranked_stocks['Ticker'].unique().tolist()     # Get unique tickers from ranked_stocks 
-
+    
     # Fetch data for all symbols
     stock_dfs = fetch_data(symbols, config)
 
     # Run backtest with explicit date handling
+    print("\nRunning backtest ...\n")
     results = run_backtest(cerebro, stock_dfs, ranked_stocks, config)
 
     # Create reports
-    create_reports(results, ranked_stocks)
+    create_reports(config,results, ranked_stocks)
+
+    print("\nBacktest completed successfully!\n")
+    # cerebro.plot()  # Plot the strategy
