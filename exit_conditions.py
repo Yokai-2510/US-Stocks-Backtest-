@@ -16,7 +16,6 @@ def exit_logic(self, current_date):
         if entry_date is not None and entry_price is not None:
             # Calculate current position metrics
             current_price = d.close[0]
-            profit_pct = ((entry_price - current_price) / entry_price) * 100
             days_held = (current_date - entry_date).days
             current_atr = self.atrs[d._name][0]
             
@@ -26,45 +25,39 @@ def exit_logic(self, current_date):
             profit_target_price = entry_price * (1 - self.config['profit_target_percent']/100)
             
             exit_reason = None
-            exit_details = {}
+            exit_details = {
+                'time_exit_date': time_exit_date.strftime("%Y-%m-%d"),
+                'stop_loss_price': stop_loss_price,
+                'profit_target_price': profit_target_price,
+                'entry_price': entry_price,
+                'current_price': current_price,
+                'days_held': days_held,
+                'target_exit_days': self.config["exit_time_days"],
+                'atr_multiplier': self.config.get('atr_multiplier'),
+                'profit_target_percent': self.config.get('profit_target_percent')
+            }
             
             # 1. Time-based exit
             if days_held >= self.config["exit_time_days"]:
                 exit_reason = "Time-based"
-                exit_details = {
-                    'criterion': 'Time-based',
-                    'target_value': time_exit_date.strftime("%Y-%m-%d"),
-                    'actual_value': current_date.strftime("%Y-%m-%d"),
-                    'days_held': days_held,
-                    'target_days': self.config["exit_time_days"]
-                }
+                exit_details['exit_criterion'] = 'Time-based'
+                exit_details['exit_value'] = time_exit_date.strftime("%Y-%m-%d")
             
             # 2. Stop Loss - ATR based
             elif current_price >= stop_loss_price:
                 exit_reason = "Stop Loss"
-                exit_details = {
-                    'criterion': 'Stop Loss',
-                    'target_value': stop_loss_price,
-                    'actual_value': current_price,
-                    'atr_value': current_atr,
-                    'atr_multiplier': self.config['atr_multiplier']
-                }
+                exit_details['exit_criterion'] = 'Stop Loss'
+                exit_details['exit_value'] = stop_loss_price
             
             # 3. Profit Target
-            elif profit_pct >= self.config['profit_target_percent']:
+            elif (entry_price - current_price) / entry_price * 100 >= self.config['profit_target_percent']:
                 exit_reason = "Profit Target"
-                exit_details = {
-                    'criterion': 'Profit Target',
-                    'target_value': profit_target_price,
-                    'actual_value': current_price,
-                    'target_percent': self.config['profit_target_percent'],
-                    'actual_percent': profit_pct
-                }
+                exit_details['exit_criterion'] = 'Profit Target'
+                exit_details['exit_value'] = profit_target_price
             
             # Execute exit if any condition is met
             if exit_reason:
-                
-                self.exit_details[d._name] = exit_details   # Store exit details in strategy instance
+                self.exit_details[d._name] = exit_details
                 self.order = self.close(data=d)  # Close the position
         
         else:
